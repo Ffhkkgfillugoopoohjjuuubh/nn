@@ -11,12 +11,7 @@ export const loginWithUsername = async (
   if (error) return { success: false, error: error.message };
   if (!data.user) return { success: false, error: 'No user returned' };
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('username', username)
-    .single();
-
+  const profile = await getProfile(data.user.id);
   return { success: true, user: profile || undefined };
 };
 
@@ -31,18 +26,14 @@ export const registerWithUsername = async (
   if (error) return { success: false, error: error.message };
   if (!data.user) return { success: false, error: 'No user returned' };
 
-  const { error: profileError } = await supabase.from('profiles').upsert({
-    id: data.user.id,
-    username,
-    display_name: displayName,
-  });
+  const profile = await getProfile(data.user.id);
 
-  if (profileError) {
-    console.log('[auth] profile upsert error:', profileError.message);
+  if (profile && profile.display_name !== displayName) {
+    await supabase.from('profiles').update({ display_name: displayName }).eq('id', data.user.id);
   }
 
-  const profile = await getProfile(data.user.id);
-  return { success: true, user: profile || undefined };
+  const updatedProfile = await getProfile(data.user.id);
+  return { success: true, user: updatedProfile || undefined };
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
@@ -61,8 +52,7 @@ export const updateProfile = async (profile: {
 }): Promise<{ success: boolean; error?: string }> => {
   const { error } = await supabase
     .from('profiles')
-    .upsert({
-      id: profile.id,
+    .update({
       display_name: profile.display_name,
       avatar_url: profile.avatar_url || null,
     })

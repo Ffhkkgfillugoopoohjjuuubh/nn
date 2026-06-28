@@ -10,11 +10,11 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../utils/constants';
 import { supabase } from '../services/supabaseClient';
-import { getAllChats } from '../services/localDatabase';
+import { getAllChats, upsertChat, insertMessage } from '../services/localDatabase';
+import { getContacts } from '../services/contactService';
 import { useAuth } from '../hooks/useAuth';
 import { useRealtimeMessages } from '../hooks/useRealtimeMessages';
 import { acknowledgeDelivery } from '../services/messageService';
-import { insertMessage, upsertChat } from '../services/localDatabase';
 import ContactItem from '../components/ContactItem';
 import { LocalChat, Message } from '../types';
 
@@ -29,8 +29,40 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
 
   const loadChats = useCallback(async () => {
     if (!user) return;
+
     const localChats = await getAllChats();
-    setChats(localChats);
+    console.log('[ChatList] localChats count:', localChats.length);
+
+    const localChatMap = new Map(localChats.map(c => [c.id, c]));
+
+    const contacts = await getContacts(user.id);
+    console.log('[ChatList] Supabase contacts count:', contacts.length);
+
+    for (const { contact } of contacts) {
+      if (!localChatMap.has(contact.id)) {
+        console.log('[ChatList] creating local_chat for contact', contact.id);
+        const newChat: LocalChat = {
+          id: contact.id,
+          contact_name: contact.display_name,
+          contact_phone: contact.phone_number,
+          last_message: '',
+          last_message_time: 0,
+          unread_count: 0,
+        };
+        await upsertChat(newChat);
+        localChatMap.set(contact.id, newChat);
+      }
+    }
+
+    const mergedChats = Array.from(localChatMap.values()).sort((a, b) => {
+      if (a.last_message_time !== b.last_message_time) {
+        return b.last_message_time - a.last_message_time;
+      }
+      return a.contact_name.localeCompare(b.contact_name);
+    });
+
+    console.log('[ChatList] mergedChats count:', mergedChats.length);
+    setChats(mergedChats);
     setLoading(false);
   }, [user]);
 

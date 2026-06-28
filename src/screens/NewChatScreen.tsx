@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../utils/constants';
 import { searchByPhone, addContact } from '../services/contactService';
+import { upsertChat } from '../services/localDatabase';
 import { useAuth } from '../hooks/useAuth';
 import { Profile } from '../types';
 
@@ -63,6 +64,15 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
     setAdding(false);
 
     if (result.success) {
+      await upsertChat({
+        id: searchedProfile.id,
+        contact_name: searchedProfile.display_name,
+        contact_phone: searchedProfile.phone_number,
+        last_message: '',
+        last_message_time: 0,
+        unread_count: 0,
+      });
+      console.log('[NewChat] local_chat created for', searchedProfile.id);
       Alert.alert('Success', `${searchedProfile.display_name} added to contacts!`, [
         {
           text: 'Chat Now',

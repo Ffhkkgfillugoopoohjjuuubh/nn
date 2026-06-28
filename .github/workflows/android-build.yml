@@ -60,13 +60,13 @@ jobs:
         working-directory: android
         run: ./gradlew clean --no-daemon
 
-      - name: Build Debug APK
+      - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: quarisme-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: quarisme-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error

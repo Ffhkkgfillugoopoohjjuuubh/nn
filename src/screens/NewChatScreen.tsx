@@ -29,7 +29,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
   const [adding, setAdding] = useState(false);
 
   const handleSearch = async () => {
-    const query = searchQuery.trim();
+    const query = searchQuery.trim().toLowerCase();
     if (!query) {
       Alert.alert('Error', 'Please enter a username');
       return;
@@ -57,18 +57,21 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
     if (!user || !searchedProfile) return;
     setAdding(true);
     const result = await addContact(user.id, searchedProfile.id);
-    setAdding(false);
 
     if (result.success) {
       await upsertChat({
         id: searchedProfile.id,
         contact_name: searchedProfile.display_name,
-        contact_phone: searchedProfile.phone_number,
+        contact_phone: searchedProfile.username,
         last_message: '',
         last_message_time: 0,
         unread_count: 0,
       });
-      console.log('[NewChat] local_chat created for', searchedProfile.id);
+    }
+
+    setAdding(false);
+
+    if (result.success) {
       Alert.alert('Success', `${searchedProfile.display_name} added to contacts!`, [
         {
           text: 'Chat Now',
@@ -76,7 +79,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
             navigation.navigate('Chat', {
               contactId: searchedProfile.id,
               contactName: searchedProfile.display_name,
-              contactPhone: searchedProfile.phone_number,
+              contactPhone: searchedProfile.username,
             }),
         },
         {
@@ -143,7 +146,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{searchedProfile.display_name}</Text>
-              <Text style={styles.profilePhone}>{searchedProfile.phone_number}</Text>
+              <Text style={styles.profilePhone}>{searchedProfile.username}</Text>
             </View>
             <TouchableOpacity
               style={[styles.addButton, adding && styles.buttonDisabled]}

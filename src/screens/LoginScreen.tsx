@@ -32,7 +32,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleSubmit = async () => {
     Keyboard.dismiss();
 
-    const trimmedUser = username.trim();
+    const trimmedUser = username.trim().toLowerCase();
     const trimmedPass = password.trim();
 
     if (!trimmedUser) {
@@ -61,21 +61,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setLoading(true);
 
     if (isSignUp) {
-      const result = await registerWithUsername(
-        trimmedUser,
-        trimmedPass,
-        displayName.trim()
-      );
+      const result = await registerWithUsername(trimmedUser, trimmedPass, displayName.trim());
       setLoading(false);
       if (result.success) {
-        if (result.user) {
-          setUser(result.user);
-        }
-        if (!result.user?.display_name) {
-          navigation.replace('ProfileSetup');
-        } else {
-          navigation.replace('MainTabs');
-        }
+        if (result.user) setUser(result.user);
+        navigation.replace('MainTabs');
       } else {
         Alert.alert('Sign Up Failed', result.error || 'Please try again');
       }

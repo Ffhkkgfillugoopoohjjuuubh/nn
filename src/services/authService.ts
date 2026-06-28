@@ -5,23 +5,19 @@ export const loginWithUsername = async (
   username: string,
   password: string
 ): Promise<{ success: boolean; error?: string; user?: Profile }> => {
-  const { data: profile, error: lookupError } = await supabase
+  const email = `${username}@quarisme.app`;
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { success: false, error: error.message };
+  if (!data.user) return { success: false, error: 'No user returned' };
+
+  const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('display_name', username)
+    .eq('username', username)
     .single();
 
-  if (lookupError || !profile) {
-    return { success: false, error: 'User not found' };
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: profile.phone_number,
-    password,
-  });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, user: profile as Profile };
+  return { success: true, user: profile || undefined };
 };
 
 export const registerWithUsername = async (
@@ -37,8 +33,8 @@ export const registerWithUsername = async (
 
   const { error: profileError } = await supabase.from('profiles').upsert({
     id: data.user.id,
+    username,
     display_name: displayName,
-    phone_number: email,
   });
 
   if (profileError) {

@@ -42,7 +42,7 @@ const SettingsScreen: React.FC = () => {
           </Text>
         </View>
         <Text style={settingsStyles.name}>{user?.display_name || 'User'}</Text>
-        <Text style={settingsStyles.phone}>{user?.phone_number || ''}</Text>
+        <Text style={settingsStyles.phone}>{user?.username || ''}</Text>
       </View>
       <TouchableOpacity style={settingsStyles.logoutButton} onPress={handleLogout}>
         <Text style={settingsStyles.logoutText}>Logout</Text>

@@ -1,6 +1,6 @@
 export interface Profile {
   id: string;
-  phone_number: string;
+  username: string;
   display_name: string;
   avatar_url?: string;
   online_status?: boolean;

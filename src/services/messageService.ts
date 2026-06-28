@@ -34,7 +34,7 @@ export const sendMessage = async (
   await upsertChat({
     id: recipientId,
     contact_name: recipientProfile.display_name,
-    contact_phone: recipientProfile.phone_number,
+    contact_phone: recipientProfile.username,
     last_message: content,
     last_message_time: timestamp,
     unread_count: 0,

@@ -44,7 +44,7 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
         const newChat: LocalChat = {
           id: contact.id,
           contact_name: contact.display_name,
-          contact_phone: contact.phone_number,
+          contact_phone: contact.username,
           last_message: '',
           last_message_time: 0,
           unread_count: 0,
@@ -87,14 +87,14 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
 
     const { data: senderProfile } = await supabase
       .from('profiles')
-      .select('display_name, phone_number')
+      .select('display_name, username')
       .eq('id', message.sender_id)
       .single();
 
     await upsertChat({
       id: message.sender_id,
       contact_name: senderProfile?.display_name || 'Unknown',
-      contact_phone: senderProfile?.phone_number || '',
+      contact_phone: senderProfile?.username || '',
       last_message: message.content,
       last_message_time: msgTime,
       unread_count: 1,

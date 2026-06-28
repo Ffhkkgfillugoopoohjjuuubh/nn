@@ -1,29 +1,40 @@
 import { supabase } from './supabaseClient';
 import { Profile } from '../types';
 
-export const sendOTP = async (phoneNumber: string): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase.auth.signInWithOtp({
-    phone: phoneNumber,
-  });
+export const signIn = async (
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string; user?: Profile }> => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { success: false, error: error.message };
-  return { success: true };
+  if (!data.user) return { success: false, error: 'No user returned' };
+  const profile = await getProfile(data.user.id);
+  return { success: true, user: profile || undefined };
 };
 
-export const verifyOTP = async (
-  phoneNumber: string,
-  token: string
+export const signUp = async (
+  email: string,
+  password: string
 ): Promise<{ success: boolean; error?: string; user?: Profile }> => {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: phoneNumber,
-    token,
-    type: 'sms',
-  });
+  const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return { success: false, error: error.message };
-  if (data.user) {
-    const profile = await getProfile(data.user.id);
-    return { success: true, user: profile || undefined };
+  if (!data.user) return { success: false, error: 'No user returned' };
+
+  const profile = await getProfile(data.user.id);
+  if (!profile) {
+    const { error: insertError } = await supabase.from('profiles').upsert({
+      id: data.user.id,
+      phone_number: email,
+      display_name: '',
+    });
+    if (insertError) {
+      console.log('[auth] profile upsert error:', insertError.message);
+    }
+    const newProfile = await getProfile(data.user.id);
+    return { success: true, user: newProfile || undefined };
   }
-  return { success: false, error: 'No user returned' };
+
+  return { success: true, user: profile };
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {

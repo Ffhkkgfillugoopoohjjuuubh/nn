@@ -6,7 +6,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { COLORS } from '../utils/constants';
 
 import LoginScreen from '../screens/LoginScreen';
-import OTPScreen from '../screens/OTPScreen';
 import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import NewChatScreen from '../screens/NewChatScreen';
@@ -164,11 +163,6 @@ const AppNavigator: React.FC = () => {
               name="Login"
               component={LoginScreen}
               options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="OTP"
-              component={OTPScreen}
-              options={{ title: 'Verify OTP' }}
             />
             <Stack.Screen
               name="ProfileSetup"

@@ -1,40 +1,52 @@
 import { supabase } from './supabaseClient';
 import { Profile } from '../types';
 
-export const signIn = async (
-  email: string,
+export const loginWithUsername = async (
+  username: string,
   password: string
 ): Promise<{ success: boolean; error?: string; user?: Profile }> => {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: profile, error: lookupError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('display_name', username)
+    .single();
+
+  if (lookupError || !profile) {
+    return { success: false, error: 'User not found' };
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: profile.phone_number,
+    password,
+  });
+
   if (error) return { success: false, error: error.message };
-  if (!data.user) return { success: false, error: 'No user returned' };
-  const profile = await getProfile(data.user.id);
-  return { success: true, user: profile || undefined };
+  return { success: true, user: profile as Profile };
 };
 
-export const signUp = async (
-  email: string,
-  password: string
+export const registerWithUsername = async (
+  username: string,
+  password: string,
+  displayName: string
 ): Promise<{ success: boolean; error?: string; user?: Profile }> => {
+  const email = `${username}@quarisme.app`;
+
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return { success: false, error: error.message };
   if (!data.user) return { success: false, error: 'No user returned' };
 
-  const profile = await getProfile(data.user.id);
-  if (!profile) {
-    const { error: insertError } = await supabase.from('profiles').upsert({
-      id: data.user.id,
-      phone_number: email,
-      display_name: '',
-    });
-    if (insertError) {
-      console.log('[auth] profile upsert error:', insertError.message);
-    }
-    const newProfile = await getProfile(data.user.id);
-    return { success: true, user: newProfile || undefined };
+  const { error: profileError } = await supabase.from('profiles').upsert({
+    id: data.user.id,
+    display_name: displayName,
+    phone_number: email,
+  });
+
+  if (profileError) {
+    console.log('[auth] profile upsert error:', profileError.message);
   }
 
-  return { success: true, user: profile };
+  const profile = await getProfile(data.user.id);
+  return { success: true, user: profile || undefined };
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {

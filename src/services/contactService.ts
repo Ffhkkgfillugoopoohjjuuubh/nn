@@ -1,6 +1,21 @@
 import { supabase } from './supabaseClient';
 import { Profile } from '../types';
 
+export const searchByUsername = async (
+  username: string
+): Promise<{ success: boolean; profile?: Profile; error?: string }> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('display_name', username)
+    .single();
+
+  if (error || !data) {
+    return { success: false, error: 'User not found on QuarisMe' };
+  }
+  return { success: true, profile: data as Profile };
+};
+
 export const searchByPhone = async (
   phoneNumber: string
 ): Promise<{ success: boolean; profile?: Profile; error?: string }> => {

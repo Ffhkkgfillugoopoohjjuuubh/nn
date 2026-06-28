@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { COLORS } from '../utils/constants';
-import { searchByPhone, addContact } from '../services/contactService';
+import { searchByUsername, addContact } from '../services/contactService';
 import { upsertChat } from '../services/localDatabase';
 import { useAuth } from '../hooks/useAuth';
 import { Profile } from '../types';
@@ -22,20 +22,16 @@ interface NewChatScreenProps {
 
 const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
-  const [searchPhone, setSearchPhone] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchedProfile, setSearchedProfile] = useState<Profile | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const handleSearch = async () => {
-    const phone = searchPhone.trim();
-    if (!phone) {
-      Alert.alert('Error', 'Please enter a phone number');
-      return;
-    }
-    if (!phone.startsWith('+')) {
-      Alert.alert('Error', 'Include country code (e.g., +919876543210)');
+    const query = searchQuery.trim();
+    if (!query) {
+      Alert.alert('Error', 'Please enter a username');
       return;
     }
 
@@ -43,7 +39,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
     setSearchedProfile(null);
     setNotFound(false);
 
-    const result = await searchByPhone(phone);
+    const result = await searchByUsername(query);
     setSearching(false);
 
     if (result.success && result.profile) {
@@ -103,20 +99,21 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.content}>
-        <Text style={styles.heading}>Find by Phone Number</Text>
+        <Text style={styles.heading}>Find by Username</Text>
 
         <View style={styles.searchRow}>
           <TextInput
             style={styles.input}
-            placeholder="+919876543210"
+            placeholder="Enter username"
             placeholderTextColor={COLORS.gray}
-            value={searchPhone}
+            value={searchQuery}
             onChangeText={(text) => {
-              setSearchPhone(text);
+              setSearchQuery(text);
               setSearchedProfile(null);
               setNotFound(false);
             }}
-            keyboardType="phone-pad"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           <TouchableOpacity
             style={[styles.searchButton, searching && styles.buttonDisabled]}

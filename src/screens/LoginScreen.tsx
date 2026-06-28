@@ -13,7 +13,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { COLORS } from '../utils/constants';
-import { signIn, signUp } from '../services/authService';
+import { loginWithUsername, registerWithUsername } from '../services/authService';
 import { useAuth } from '../hooks/useAuth';
 
 interface LoginScreenProps {
@@ -22,39 +22,50 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const { setUser } = useAuth();
 
   const handleSubmit = async () => {
     Keyboard.dismiss();
 
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
+    const trimmedUser = username.trim();
+    const trimmedPass = password.trim();
 
-    if (!trimmedEmail) {
-      Alert.alert('Error', 'Please enter your email');
+    if (!trimmedUser) {
+      Alert.alert('Error', 'Please enter your username');
       return;
     }
-    if (!trimmedPassword) {
+    if (!trimmedPass) {
       Alert.alert('Error', 'Please enter your password');
       return;
     }
-    if (trimmedPassword.length < 6) {
+    if (trimmedPass.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
-    if (isSignUp && trimmedPassword !== confirmPassword.trim()) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
+    if (isSignUp) {
+      if (trimmedPass !== confirmPassword.trim()) {
+        Alert.alert('Error', 'Passwords do not match');
+        return;
+      }
+      if (!displayName.trim()) {
+        Alert.alert('Error', 'Please enter your display name');
+        return;
+      }
     }
 
     setLoading(true);
 
     if (isSignUp) {
-      const result = await signUp(trimmedEmail, trimmedPassword);
+      const result = await registerWithUsername(
+        trimmedUser,
+        trimmedPass,
+        displayName.trim()
+      );
       setLoading(false);
       if (result.success) {
         if (result.user) {
@@ -69,19 +80,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         Alert.alert('Sign Up Failed', result.error || 'Please try again');
       }
     } else {
-      const result = await signIn(trimmedEmail, trimmedPassword);
+      const result = await loginWithUsername(trimmedUser, trimmedPass);
       setLoading(false);
       if (result.success && result.user) {
         setUser(result.user);
-        if (!result.user.display_name) {
-          navigation.replace('ProfileSetup');
-        } else {
-          navigation.replace('MainTabs');
-        }
+        navigation.replace('MainTabs');
       } else if (result.success && !result.user) {
         navigation.replace('ProfileSetup');
       } else {
-        Alert.alert('Login Failed', result.error || 'Invalid email or password');
+        Alert.alert('Login Failed', result.error || 'Invalid username or password');
       }
     }
   };
@@ -101,18 +108,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Username</Text>
             <TextInput
               style={styles.input}
-              placeholder="you@example.com"
+              placeholder="Enter your username"
               placeholderTextColor={COLORS.gray}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              value={username}
+              onChangeText={setUsername}
               autoCapitalize="none"
-              autoComplete="email"
+              autoCorrect={false}
             />
           </View>
+
+          {isSignUp && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Display Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your display name"
+                placeholderTextColor={COLORS.gray}
+                value={displayName}
+                onChangeText={setDisplayName}
+                maxLength={50}
+              />
+            </View>
+          )}
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Password</Text>
@@ -124,7 +144,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
-              autoComplete={isSignUp ? 'new-password' : 'password'}
             />
           </View>
 
@@ -139,7 +158,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 autoCapitalize="none"
-                autoComplete="new-password"
               />
             </View>
           )}

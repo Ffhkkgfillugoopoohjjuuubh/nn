@@ -59,8 +59,18 @@ export const subscribeToMessages = (
   currentUserId: string,
   onMessageReceived: (message: Message) => void
 ): (() => void) => {
+  // Remove existing subscription first to avoid duplicate channel errors
+  if (messageSubscription) {
+    supabase.removeChannel(messageSubscription);
+    messageSubscription = null;
+  }
+
+  // Use a unique topic per subscription so supabase.channel() doesn't
+  // return an already-subscribed channel (which would reject .on() calls)
+  const topic = `messages-channel-${currentUserId}-${Date.now()}`;
+
   messageSubscription = supabase
-    .channel('messages-channel')
+    .channel(topic)
     .on(
       'postgres_changes',
       {

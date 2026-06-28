@@ -87,12 +87,10 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigation }) => {
           style: 'cancel',
         },
       ]);
+    } else if (result.error === 'already_added') {
+      Alert.alert('Already Added', 'This contact is already in your list');
     } else {
-      if (result.error?.includes('duplicate') || result.error?.includes('unique')) {
-        Alert.alert('Already Added', 'This contact is already in your list');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to add contact');
-      }
+      Alert.alert('Error', result.error || 'Failed to add contact');
     }
   };
 

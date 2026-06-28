@@ -60,6 +60,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
     setLoading(true);
 
+    console.log('[SCREEN] LoginScreen.handleSubmit', isSignUp ? 'SIGNUP' : 'LOGIN');
+    console.log('[SCREEN]   trimmedUser:', `"${trimmedUser}"`);
+    console.log('[SCREEN]   trimmedPass length:', trimmedPass.length);
+
     if (isSignUp) {
       const result = await registerWithUsername(trimmedUser, trimmedPass, displayName.trim());
       setLoading(false);
@@ -70,14 +74,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         Alert.alert('Sign Up Failed', result.error || 'Please try again');
       }
     } else {
+      console.log('[SCREEN] calling loginWithUsername');
       const result = await loginWithUsername(trimmedUser, trimmedPass);
       setLoading(false);
+      console.log('[SCREEN] loginWithUsername result:', JSON.stringify({ ...result, user: result.user ? result.user.username : null }));
       if (result.success && result.user) {
+        console.log('[SCREEN] setting user and navigating to MainTabs');
         setUser(result.user);
         navigation.replace('MainTabs');
       } else if (result.success && !result.user) {
+        console.log('[SCREEN] no profile, navigating to ProfileSetup');
         navigation.replace('ProfileSetup');
       } else {
+        console.log('[SCREEN] login failed:', result.error);
         Alert.alert('Login Failed', result.error || 'Invalid username or password');
       }
     }

@@ -8,9 +8,12 @@ export const searchByUsername = async (
     .from('profiles')
     .select('*')
     .eq('username', username)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  if (!data) {
     return { success: false, error: 'User not found on QuarisMe' };
   }
   return { success: true, profile: data as Profile };
@@ -44,6 +47,17 @@ export const addContact = async (
   userId: string,
   contactUserId: string
 ): Promise<{ success: boolean; error?: string }> => {
+  const { data: existing } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('contact_user_id', contactUserId)
+    .maybeSingle();
+
+  if (existing) {
+    return { success: false, error: 'already_added' };
+  }
+
   const { error } = await supabase.from('contacts').insert({
     user_id: userId,
     contact_user_id: contactUserId,

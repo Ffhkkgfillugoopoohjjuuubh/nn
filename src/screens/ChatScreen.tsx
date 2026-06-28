@@ -45,8 +45,34 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
 
   useEffect(() => {
     const load = async () => {
-      const msgs = await getMessagesForChat(contactId);
-      setMessages(msgs);
+      const localMsgs = await getMessagesForChat(contactId);
+      const seenIds = new Set(localMsgs.map(m => m.id));
+
+      const { data: remoteMsgs } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${contactId},recipient_id.eq.${contactId}`)
+        .order('created_at', { ascending: true });
+
+      if (remoteMsgs) {
+        for (const rm of remoteMsgs) {
+          if (!seenIds.has(rm.id)) {
+            await insertMessage({
+              id: rm.id,
+              chat_id: contactId,
+              sender_id: rm.sender_id,
+              content: rm.content,
+              timestamp: new Date(rm.created_at).getTime(),
+              is_sent: rm.sender_id === user?.id ? 1 : 0,
+              is_read: rm.is_read ? 1 : 0,
+              delivery_status: rm.is_read ? 'read' : rm.delivered_at ? 'delivered' : 'sent',
+            });
+          }
+        }
+      }
+
+      const merged = await getMessagesForChat(contactId);
+      setMessages(merged);
       setLoading(false);
       await markChatRead(contactId);
     };

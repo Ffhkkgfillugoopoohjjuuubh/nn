@@ -1,0 +1,22 @@
+node_modules/
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+*.log
+
+# Android
+android/.gradle/
+android/app/build/
+android/app/release/
+android/build/
+android/captures/
+android/local.properties
+android/.idea/
+*.iml

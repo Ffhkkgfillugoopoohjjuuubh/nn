@@ -53,9 +53,16 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
+      - name: Set Gradle JVM options
+        run: echo "GRADLE_OPTS=-Xmx4g -Dorg.gradle.jvmargs='-Xmx4g -XX:MaxMetaspaceSize=1g'" >> $GITHUB_ENV
+
+      - name: Clean previous builds
+        working-directory: android
+        run: ./gradlew clean --no-daemon
+
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -37,15 +37,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const [recipientProfile, setRecipientProfile] = useState<Profile | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  console.log('[CHAT] ChatScreen mounted');
-  console.log('[CHAT] contactId:', contactId);
-  console.log('[CHAT] contactName:', contactName);
-  console.log('[CHAT] contactPhone:', contactPhone);
-  console.log('[CHAT] user:', user?.id);
-
   useEffect(() => {
     navigation.setOptions({
-      title: contactName || 'Chat',
+      title: contactName,
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.white,
     });
@@ -54,76 +48,44 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        console.log('[CHAT] Loading messages for contactId:', contactId);
         if (!contactId) {
-          console.error('[CHAT] No contactId provided');
           setLoadError('No contact ID provided');
           setLoading(false);
           return;
         }
 
         const localMsgs = await getMessagesForChat(contactId);
-        console.log('[CHAT] Local messages:', localMsgs.length);
         const seenIds = new Set(localMsgs.map(m => m.id));
 
-        try {
-          const { data: remoteMsgs, error: remoteError } = await supabase
-            .from('messages')
-            .select('*')
-            .or(`sender_id.eq.${contactId},recipient_id.eq.${contactId}`)
-            .order('created_at', { ascending: true });
+        const { data: remoteMsgs } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`sender_id.eq.${contactId},recipient_id.eq.${contactId}`)
+          .order('created_at', { ascending: true });
 
-          if (remoteError) {
-            console.error('[CHAT] Supabase query error:', remoteError.message);
-          }
-
-          if (remoteMsgs && remoteMsgs.length > 0) {
-            console.log('[CHAT] Remote messages:', remoteMsgs.length);
-            for (const rm of remoteMsgs) {
-              if (!seenIds.has(rm.id)) {
-                try {
-                  await insertMessage({
-                    id: rm.id,
-                    chat_id: contactId,
-                    sender_id: rm.sender_id,
-                    content: rm.content,
-                    timestamp: new Date(rm.created_at).getTime(),
-                    is_sent: rm.sender_id === user?.id ? 1 : 0,
-                    is_read: rm.is_read ? 1 : 0,
-                    delivery_status: rm.is_read ? 'read' : rm.delivered_at ? 'delivered' : 'sent',
-                  });
-                } catch (insertErr) {
-                  console.error('[CHAT] insertMessage error:', insertErr);
-                }
-              }
+        if (remoteMsgs) {
+          for (const rm of remoteMsgs) {
+            if (!seenIds.has(rm.id)) {
+              await insertMessage({
+                id: rm.id,
+                chat_id: contactId,
+                sender_id: rm.sender_id,
+                content: rm.content,
+                timestamp: new Date(rm.created_at).getTime(),
+                is_sent: rm.sender_id === user?.id ? 1 : 0,
+                is_read: rm.is_read ? 1 : 0,
+                delivery_status: rm.is_read ? 'read' : rm.delivered_at ? 'delivered' : 'sent',
+              });
             }
-          } else {
-            console.log('[CHAT] No remote messages');
           }
-        } catch (supabaseErr) {
-          console.error('[CHAT] Supabase fetch error:', supabaseErr);
         }
 
-        let merged: LocalMessage[] = [];
-        try {
-          merged = await getMessagesForChat(contactId);
-        } catch (dbErr) {
-          console.error('[CHAT] getMessagesForChat error:', dbErr);
-        }
-
-        console.log('[CHAT] Merged messages:', merged.length);
+        const merged = await getMessagesForChat(contactId);
         setMessages(merged);
         setLoading(false);
-
-        try {
-          await markChatRead(contactId);
-          console.log('[CHAT] Marked chat as read');
-        } catch (markErr) {
-          console.error('[CHAT] markChatRead error:', markErr);
-        }
+        await markChatRead(contactId);
       } catch (err) {
-        console.error('[CHAT] Load error:', err);
-        setLoadError('Failed to load messages: ' + (err as Error).message);
+        setLoadError('Failed to load messages');
         setLoading(false);
       }
     };
@@ -132,38 +94,35 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
 
   useEffect(() => {
     const fetchProfile = async () => {
+      if (!contactId) return;
       try {
-        if (!contactId) return;
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', contactId)
           .single();
-        if (error) {
-          console.error('[CHAT] Profile fetch error:', error.message);
-        }
         if (data) setRecipientProfile(data as Profile);
       } catch (err) {
-        console.error('[CHAT] Profile fetch error:', err);
+        // profile fetch failed silently
       }
     };
     fetchProfile();
   }, [contactId]);
 
-  useRealtimeMessages(user?.id || '', useCallback(async (message: Message) => {
-    try {
-      if (message.sender_id === contactId) {
-        const msgTime = new Date(message.created_at).getTime();
-        const localMsg: LocalMessage = {
-          id: message.id,
-          chat_id: message.sender_id,
-          sender_id: message.sender_id,
-          content: message.content,
-          timestamp: msgTime,
-          is_sent: 0,
-          is_read: 0,
-          delivery_status: 'delivered',
-        };
+  const onRealtimeMessage = useCallback(async (message: Message) => {
+    if (message.sender_id === contactId) {
+      const msgTime = new Date(message.created_at).getTime();
+      const localMsg: LocalMessage = {
+        id: message.id,
+        chat_id: message.sender_id,
+        sender_id: message.sender_id,
+        content: message.content,
+        timestamp: msgTime,
+        is_sent: 0,
+        is_read: 0,
+        delivery_status: 'delivered',
+      };
+      try {
         await insertMessage(localMsg);
         setMessages(prev => [...prev, localMsg]);
         await acknowledgeDelivery(message.id);
@@ -176,11 +135,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
           last_message_time: msgTime,
           unread_count: 0,
         });
+      } catch (err) {
+        // realtime message handling failed silently
       }
-    } catch (err) {
-      console.error('[CHAT] Realtime handler error:', err);
     }
-  }, [contactId, contactName, contactPhone]));
+  }, [contactId, contactName, contactPhone]);
+
+  useRealtimeMessages(user?.id || '', onRealtimeMessage);
 
   const handleSend = async (text: string) => {
     if (!user || !recipientProfile) return;
@@ -207,7 +168,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         )
       );
     } catch (err) {
-      console.error('[CHAT] sendMessage error:', err);
+      // send failed silently
     }
   };
 

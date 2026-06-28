@@ -50,6 +50,9 @@ jobs:
         run: |
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" > /dev/null 2>&1
 
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
+
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon

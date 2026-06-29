@@ -41,6 +41,7 @@ export const sendMessage = async (
   });
 
   const { error } = await supabase.from('messages').insert({
+    id: localMessageId,
     sender_id: senderId,
     recipient_id: recipientId,
     content,

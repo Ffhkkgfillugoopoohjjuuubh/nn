@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../utils/constants';
 
 interface ChatBubbleProps {
@@ -7,68 +7,88 @@ interface ChatBubbleProps {
   isSent: boolean;
   timestamp: number;
   deliveryStatus?: string;
+  onLongPress?: () => void;
 }
+
+const formatMessageTime = (ts: number): string => {
+  const date = new Date(ts);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (diffDays === 1) {
+    return 'Yesterday';
+  }
+  if (diffDays < 7) {
+    return date.toLocaleDateString([], { weekday: 'long' });
+  }
+  return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+};
+
+const renderStatusIcon = (isSent: boolean, deliveryStatus?: string) => {
+  if (!isSent) return null;
+  switch (deliveryStatus) {
+    case 'sending':
+      return <Text style={styles.statusSending}>⏳</Text>;
+    case 'sent':
+      return <Text style={styles.statusSent}>✓</Text>;
+    case 'delivered':
+      return <Text style={styles.statusDelivered}>✓✓</Text>;
+    case 'read':
+      return <Text style={styles.statusRead}>✓✓</Text>;
+    default:
+      return <Text style={styles.statusSent}>✓</Text>;
+  }
+};
 
 const ChatBubble: React.FC<ChatBubbleProps> = ({
   content,
   isSent,
   timestamp,
   deliveryStatus,
+  onLongPress,
 }) => {
-  const time = new Date(timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  const statusIcon = () => {
-    if (!isSent) return null;
-    switch (deliveryStatus) {
-      case 'sending':
-        return '⏳';
-      case 'sent':
-        return '✓';
-      case 'delivered':
-        return '✓✓';
-      case 'read':
-        return '✓✓';
-      default:
-        return '✓';
-    }
-  };
+  const isDeleted = content === 'This message was deleted.';
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onLongPress={onLongPress}
+      delayLongPress={500}
       style={[
         styles.bubble,
         isSent ? styles.sentBubble : styles.receivedBubble,
         isSent ? styles.sentAlign : styles.receivedAlign,
       ]}
     >
-      <Text style={[styles.messageText, isSent ? styles.sentText : styles.receivedText]}>
-        {content}
+      <Text style={[
+        styles.messageText,
+        isSent ? styles.sentText : styles.receivedText,
+        isDeleted && styles.deletedText,
+      ]}>
+        {isDeleted ? 'This message was deleted.' : content}
       </Text>
-      <View style={styles.metaContainer}>
+      <View style={styles.metaRow}>
         <Text style={[styles.timeText, isSent ? styles.sentTime : styles.receivedTime]}>
-          {time}
+          {formatMessageTime(timestamp)}
         </Text>
-        {isSent && (
-          <Text style={[styles.statusText, deliveryStatus === 'read' ? styles.readStatus : styles.sentStatus]}>
-            {statusIcon()}
-          </Text>
-        )}
+        {isSent && renderStatusIcon(isSent, deliveryStatus)}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   bubble: {
-    maxWidth: '75%',
-    padding: 8,
+    maxWidth: '78%',
     paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingTop: 8,
     borderRadius: 8,
-    marginVertical: 2,
-    marginHorizontal: 10,
+    marginVertical: 3,
+    marginHorizontal: 12,
   },
   sentBubble: {
     backgroundColor: COLORS.sentBubble,
@@ -89,6 +109,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 20,
+    color: COLORS.black,
   },
   sentText: {
     color: COLORS.black,
@@ -96,30 +117,40 @@ const styles = StyleSheet.create({
   receivedText: {
     color: COLORS.black,
   },
-  metaContainer: {
+  deletedText: {
+    fontStyle: 'italic',
+    color: COLORS.gray,
+  },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 2,
+    marginTop: 4,
+    gap: 4,
   },
   timeText: {
     fontSize: 11,
   },
   sentTime: {
-    color: '#666',
+    color: '#667781',
   },
   receivedTime: {
-    color: '#666',
+    color: '#667781',
   },
-  statusText: {
+  statusSending: {
+    fontSize: 10,
+  },
+  statusSent: {
     fontSize: 12,
-    marginLeft: 3,
+    color: '#8696A0',
   },
-  readStatus: {
+  statusDelivered: {
+    fontSize: 12,
+    color: '#8696A0',
+  },
+  statusRead: {
+    fontSize: 12,
     color: '#53BDEB',
-  },
-  sentStatus: {
-    color: '#666',
   },
 });
 

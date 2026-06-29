@@ -205,6 +205,74 @@ export const markMessagesAsRead = async (chatId: string, senderId: string): Prom
   });
 };
 
+export const updateMessageDeliveryStatus = async (
+  messageId: string,
+  status: string,
+  isRead?: number
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        `UPDATE local_messages SET delivery_status = ?${isRead !== undefined ? ', is_read = ?' : ''} WHERE id = ?`,
+        isRead !== undefined ? [status, isRead, messageId] : [status, messageId],
+        () => resolve(),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
+export const deleteMessageById = async (messageId: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'DELETE FROM local_messages WHERE id = ?',
+        [messageId],
+        () => resolve(),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
+export const updateMessageContent = async (messageId: string, content: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'UPDATE local_messages SET content = ? WHERE id = ?',
+        [content, messageId],
+        () => resolve(),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
+export const getMessageById = async (messageId: string): Promise<LocalMessage | null> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'SELECT * FROM local_messages WHERE id = ?',
+        [messageId],
+        (_, { rows }) => resolve(rows.length > 0 ? (rows.item(0) as LocalMessage) : null),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
 // ---- PENDING MESSAGES (offline queue) ----
 
 export const getPendingMessages = async (): Promise<LocalMessage[]> => {

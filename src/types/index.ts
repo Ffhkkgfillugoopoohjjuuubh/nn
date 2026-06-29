@@ -16,6 +16,7 @@ export interface Message {
   is_read: boolean;
   created_at: string;
   delivered_at?: string;
+  read_at?: string;
 }
 
 export interface Contact {

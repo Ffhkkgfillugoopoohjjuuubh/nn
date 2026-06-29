@@ -6,6 +6,7 @@ import {
   getPendingMessages,
   upsertChat,
   updateChatLastMessage,
+  updateMessageDeliveryStatus,
 } from './localDatabase';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
@@ -58,16 +59,13 @@ export const sendMessage = async (
 
 export const subscribeToMessages = (
   currentUserId: string,
-  onMessageReceived: (message: Message) => void
+  onMessageReceived: (message: Message, eventType?: 'INSERT' | 'UPDATE') => void
 ): (() => void) => {
-  // Remove existing subscription first to avoid duplicate channel errors
   if (messageSubscription) {
     supabase.removeChannel(messageSubscription);
     messageSubscription = null;
   }
 
-  // Use a unique topic per subscription so supabase.channel() doesn't
-  // return an already-subscribed channel (which would reject .on() calls)
   const topic = `messages-channel-${currentUserId}-${Date.now()}`;
 
   messageSubscription = supabase
@@ -83,7 +81,22 @@ export const subscribeToMessages = (
       (payload: RealtimePostgresChangesPayload<Message>) => {
         const newMessage = payload.new as Message;
         if (newMessage && newMessage.sender_id !== currentUserId) {
-          onMessageReceived(newMessage);
+          onMessageReceived(newMessage, 'INSERT');
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `or(sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId})`,
+      },
+      (payload: RealtimePostgresChangesPayload<Message>) => {
+        const updatedMessage = payload.new as Message;
+        if (updatedMessage) {
+          onMessageReceived(updatedMessage, 'UPDATE');
         }
       }
     )
@@ -109,6 +122,24 @@ export const markAsRead = async (messageId: string): Promise<void> => {
     .from('messages')
     .update({ is_read: true })
     .eq('id', messageId);
+};
+
+export const markMessagesReadOnServer = async (contactId: string, currentUserId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .eq('sender_id', contactId)
+    .eq('recipient_id', currentUserId)
+    .is('is_read', false);
+  if (error) console.error('markMessagesReadOnServer error:', error.message);
+};
+
+export const deleteForEveryone = async (messageId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('messages')
+    .update({ content: 'This message was deleted.' })
+    .eq('id', messageId);
+  if (error) console.error('deleteForEveryone error:', error.message);
 };
 
 export const processPendingMessages = async (

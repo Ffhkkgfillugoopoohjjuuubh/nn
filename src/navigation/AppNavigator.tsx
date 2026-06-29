@@ -10,6 +10,7 @@ import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import NewChatScreen from '../screens/NewChatScreen';
 import ChatScreen from '../screens/ChatScreen';
+import MessageInfoScreen from '../screens/MessageInfoScreen';
 import { useAuth } from '../hooks/useAuth';
 import { signOut } from '../services/authService';
 
@@ -186,6 +187,11 @@ const AppNavigator: React.FC = () => {
               name="Chat"
               component={ChatScreen}
               options={{ title: 'Chat' }}
+            />
+            <Stack.Screen
+              name="MessageInfo"
+              component={MessageInfoScreen}
+              options={{ title: 'Message Info' }}
             />
           </>
         )}

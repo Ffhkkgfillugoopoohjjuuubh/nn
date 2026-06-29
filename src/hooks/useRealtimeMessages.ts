@@ -4,13 +4,13 @@ import { Message } from '../types';
 
 export const useRealtimeMessages = (
   currentUserId: string,
-  onMessageReceived: (message: Message) => void
+  onMessageReceived: (message: Message, eventType?: 'INSERT' | 'UPDATE') => void
 ) => {
   const callbackRef = useRef(onMessageReceived);
   callbackRef.current = onMessageReceived;
 
-  const handler = useCallback((message: Message) => {
-    callbackRef.current(message);
+  const handler = useCallback((message: Message, eventType?: 'INSERT' | 'UPDATE') => {
+    callbackRef.current(message, eventType);
   }, []);
 
   useEffect(() => {

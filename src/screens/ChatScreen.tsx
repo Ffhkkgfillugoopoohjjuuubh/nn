@@ -284,7 +284,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     return Date.now() - timestamp < 15 * 60 * 1000;
   }, []);
 
-  const renderItem = ({ item }: { item: LocalMessage }) => {
+  const renderItem = useCallback(({ item }: { item: LocalMessage }) => {
     if (!item) return null;
     return (
       <ChatBubble
@@ -295,7 +295,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         onLongPress={() => handleLongPress(item)}
       />
     );
-  };
+  }, [handleLongPress]);
 
   const isOwnSelected = selectedMessage?.is_sent === 1;
   const canDeleteEveryone = isOwnSelected && selectedMessage ? isWithin15Min(selectedMessage.timestamp) : false;
@@ -325,6 +325,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
       <FlatList
         ref={flatListRef}
         data={messages}
+        extraData={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         style={styles.messageList}

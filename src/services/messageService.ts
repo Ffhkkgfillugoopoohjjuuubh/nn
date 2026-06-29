@@ -10,8 +10,6 @@ import {
 } from './localDatabase';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-let messageSubscription: any = null;
-
 export const sendMessage = async (
   senderId: string,
   recipientId: string,
@@ -61,14 +59,9 @@ export const subscribeToMessages = (
   currentUserId: string,
   onMessageReceived: (message: Message, eventType?: 'INSERT' | 'UPDATE') => void
 ): (() => void) => {
-  if (messageSubscription) {
-    supabase.removeChannel(messageSubscription);
-    messageSubscription = null;
-  }
-
   const topic = `messages-channel-${currentUserId}-${Date.now()}`;
 
-  messageSubscription = supabase
+  const channel = supabase
     .channel(topic)
     .on(
       'postgres_changes',
@@ -103,10 +96,7 @@ export const subscribeToMessages = (
     .subscribe();
 
   return () => {
-    if (messageSubscription) {
-      supabase.removeChannel(messageSubscription);
-      messageSubscription = null;
-    }
+    supabase.removeChannel(channel);
   };
 };
 

@@ -6,7 +6,6 @@ import {
   getPendingMessages,
   upsertChat,
   updateChatLastMessage,
-  updateMessageDeliveryStatus,
 } from './localDatabase';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
@@ -57,7 +56,7 @@ export const sendMessage = async (
 
 export const subscribeToMessages = (
   currentUserId: string,
-  onMessageReceived: (message: Message, eventType?: 'INSERT' | 'UPDATE') => void
+  onMessageReceived: (message: Message) => void
 ): (() => void) => {
   const topic = `messages-channel-${currentUserId}-${Date.now()}`;
 
@@ -74,22 +73,7 @@ export const subscribeToMessages = (
       (payload: RealtimePostgresChangesPayload<Message>) => {
         const newMessage = payload.new as Message;
         if (newMessage && newMessage.sender_id !== currentUserId) {
-          onMessageReceived(newMessage, 'INSERT');
-        }
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages',
-        filter: `or(sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId})`,
-      },
-      (payload: RealtimePostgresChangesPayload<Message>) => {
-        const updatedMessage = payload.new as Message;
-        if (updatedMessage) {
-          onMessageReceived(updatedMessage, 'UPDATE');
+          onMessageReceived(newMessage);
         }
       }
     )

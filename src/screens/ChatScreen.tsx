@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Clipboard,
-  Alert,
 } from 'react-native';
 import { COLORS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
@@ -26,8 +25,6 @@ import {
   markChatRead,
   deleteMessageById,
   updateMessageContent,
-  updateMessageDeliveryStatus,
-  getMessageById,
 } from '../services/localDatabase';
 import { supabase } from '../services/supabaseClient';
 import ChatBubble from '../components/ChatBubble';
@@ -127,70 +124,34 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     fetchProfile();
   }, [contactId]);
 
-  const onRealtimeMessage = useCallback(async (message: Message, eventType?: 'INSERT' | 'UPDATE') => {
-    if (eventType === 'INSERT') {
-      if (message.sender_id === contactId) {
-        const msgTime = new Date(message.created_at).getTime();
-        const localMsg: LocalMessage = {
-          id: message.id,
-          chat_id: message.sender_id,
-          sender_id: message.sender_id,
-          content: message.content,
-          timestamp: msgTime,
-          is_sent: 0,
-          is_read: 0,
-          delivery_status: 'delivered',
-        };
-        try {
-          await insertMessage(localMsg);
-          setMessages(prev => [...prev, localMsg]);
-          await acknowledgeDelivery(message.id);
-
-          await upsertChat({
-            id: contactId,
-            contact_name: contactName,
-            contact_phone: contactPhone,
-            last_message: message.content,
-            last_message_time: msgTime,
-            unread_count: 0,
-          });
-        } catch (err) {
-          // realtime message handling failed silently
-        }
-      }
-    } else if (eventType === 'UPDATE') {
+  const onRealtimeMessage = useCallback(async (message: Message) => {
+    if (message.sender_id === contactId) {
+      const msgTime = new Date(message.created_at).getTime();
+      const localMsg: LocalMessage = {
+        id: message.id,
+        chat_id: message.sender_id,
+        sender_id: message.sender_id,
+        content: message.content,
+        timestamp: msgTime,
+        is_sent: 0,
+        is_read: 0,
+        delivery_status: 'delivered',
+      };
       try {
-        const existing = await getMessageById(message.id);
-        if (!existing) return;
+        await insertMessage(localMsg);
+        setMessages(prev => [...prev, localMsg]);
+        await acknowledgeDelivery(message.id);
 
-        const isDeleted = message.content === 'This message was deleted.';
-        if (isDeleted && existing.content !== message.content) {
-          await updateMessageContent(message.id, message.content);
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === message.id ? { ...m, content: message.content } : m
-            )
-          );
-          return;
-        }
-
-        if (message.is_read && existing.delivery_status !== 'read') {
-          await updateMessageDeliveryStatus(message.id, 'read', 1);
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === message.id ? { ...m, delivery_status: 'read' as const, is_read: 1 } : m
-            )
-          );
-        } else if (message.delivered_at && existing.delivery_status === 'sent') {
-          await updateMessageDeliveryStatus(message.id, 'delivered');
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === message.id ? { ...m, delivery_status: 'delivered' as const } : m
-            )
-          );
-        }
+        await upsertChat({
+          id: contactId,
+          contact_name: contactName,
+          contact_phone: contactPhone,
+          last_message: message.content,
+          last_message_time: msgTime,
+          unread_count: 0,
+        });
       } catch (err) {
-        // realtime update handling failed silently
+        // realtime message handling failed silently
       }
     }
   }, [contactId, contactName, contactPhone]);

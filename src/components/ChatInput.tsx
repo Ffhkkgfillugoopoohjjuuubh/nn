@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS } from '../utils/constants';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
+  editMessage?: string;
+  onCancelEdit?: () => void;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSend, editMessage, onCancelEdit }) => {
   const [text, setText] = useState('');
+
+  useEffect(() => {
+    if (editMessage !== undefined) {
+      setText(editMessage);
+    }
+  }, [editMessage]);
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -22,9 +30,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.container}>
+        {editMessage !== undefined && (
+          <TouchableOpacity onPress={onCancelEdit} style={styles.cancelEdit}>
+            <Text style={styles.cancelEditText}>✕</Text>
+          </TouchableOpacity>
+        )}
         <TextInput
           style={styles.input}
-          placeholder="Type a message"
+          placeholder={editMessage !== undefined ? 'Edit message' : 'Type a message'}
           placeholderTextColor={COLORS.gray}
           value={text}
           onChangeText={setText}
@@ -78,6 +91,20 @@ const styles = StyleSheet.create({
   sendIcon: {
     color: COLORS.white,
     fontSize: 16,
+  },
+  cancelEdit: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  cancelEditText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
 });
 

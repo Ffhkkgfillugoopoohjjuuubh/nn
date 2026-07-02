@@ -17,6 +17,9 @@ export interface Message {
   created_at: string;
   delivered_at?: string;
   read_at?: string;
+  edited_at?: string;
+  is_edited?: boolean;
+  deleted_for_everyone?: boolean;
 }
 
 export interface Contact {
@@ -44,6 +47,9 @@ export interface LocalMessage {
   is_sent: number;
   is_read: number;
   delivery_status: 'sending' | 'sent' | 'delivered' | 'read';
+  edited_at?: number;
+  is_edited?: number;
+  is_deleted_for_me?: number;
 }
 
 export interface AuthState {

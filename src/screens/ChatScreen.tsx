@@ -16,15 +16,20 @@ import {
   sendMessage,
   acknowledgeDelivery,
   markMessagesReadOnServer,
-  deleteForEveryone,
+  softDeleteForEveryone,
+  editMessageOnServer,
+  subscribeToSentMessageUpdates,
+  subscribeToReceivedMessageUpdates,
 } from '../services/messageService';
 import {
   getMessagesForChat,
   insertMessage,
   upsertChat,
   markChatRead,
-  deleteMessageById,
   updateMessageContent,
+  updateMessageDeliveryStatus,
+  softDeleteMessageForMe,
+  editMessageLocal,
 } from '../services/localDatabase';
 import { supabase } from '../services/supabaseClient';
 import ChatBubble from '../components/ChatBubble';
@@ -48,6 +53,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
 
   const [selectedMessage, setSelectedMessage] = useState<LocalMessage | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<LocalMessage | null>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -87,6 +93,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
                 is_sent: rm.sender_id === user?.id ? 1 : 0,
                 is_read: rm.is_read ? 1 : 0,
                 delivery_status: rm.is_read ? 'read' : rm.delivered_at ? 'delivered' : 'sent',
+                is_edited: rm.is_edited ? 1 : 0,
+                edited_at: rm.edited_at ? new Date(rm.edited_at).getTime() : undefined,
               });
             }
           }
@@ -136,6 +144,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         is_sent: 0,
         is_read: 0,
         delivery_status: 'delivered',
+        is_edited: message.is_edited ? 1 : 0,
+        edited_at: message.edited_at ? new Date(message.edited_at).getTime() : undefined,
       };
       try {
         await insertMessage(localMsg);
@@ -158,7 +168,81 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
 
   useRealtimeMessages(user?.id || '', onRealtimeMessage);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribeToSentMessageUpdates(user.id, (updated: Message) => {
+      if (updated.recipient_id !== contactId) return;
+      if (updated.delivered_at) {
+        setMessages(prev => {
+          const msg = prev.find(m => m.id === updated.id);
+          if (!msg || msg.delivery_status === 'read') return prev;
+          updateMessageDeliveryStatus(updated.id, 'delivered');
+          return prev.map(m => m.id === updated.id ? { ...m, delivery_status: 'delivered' as const } : m);
+        });
+      }
+      if (updated.read_at) {
+        setMessages(prev => {
+          const msg = prev.find(m => m.id === updated.id);
+          if (!msg || msg.delivery_status === 'read') return prev;
+          updateMessageDeliveryStatus(updated.id, 'read', 1);
+          return prev.map(m => m.id === updated.id ? { ...m, delivery_status: 'read' as const, is_read: 1 } : m);
+        });
+      }
+      if (updated.is_edited && updated.edited_at) {
+        setMessages(prev =>
+          prev.map(m => m.id === updated.id ? { ...m, content: updated.content, is_edited: 1 } : m)
+        );
+      }
+    });
+    return unsub;
+  }, [user?.id, contactId]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribeToReceivedMessageUpdates(user.id, (updated: Message) => {
+      if (updated.sender_id !== contactId) return;
+      if (updated.is_edited) {
+        updateMessageContent(updated.id, updated.content);
+        setMessages(prev =>
+          prev.map(m => m.id === updated.id ? { ...m, content: updated.content, is_edited: 1 } : m)
+        );
+      }
+      if (updated.deleted_for_everyone) {
+        updateMessageContent(updated.id, 'This message was deleted.');
+        setMessages(prev =>
+          prev.map(m => m.id === updated.id ? { ...m, content: 'This message was deleted.' } : m)
+        );
+      }
+    });
+    return unsub;
+  }, [user?.id, contactId]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+  }, []);
+
+  const handleEditSave = async (text: string) => {
+    if (!editingMessage) return;
+    const msgId = editingMessage.id;
+    try {
+      await editMessageOnServer(msgId, text);
+      await editMessageLocal(msgId, text);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === msgId ? { ...m, content: text, is_edited: 1, edited_at: Date.now() } : m
+        )
+      );
+    } catch (err) {
+      // edit failed silently
+    }
+    setEditingMessage(null);
+  };
+
   const handleSend = async (text: string) => {
+    if (editingMessage) {
+      await handleEditSave(text);
+      return;
+    }
     if (!user || !recipientProfile) return;
 
     const localId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); });
@@ -204,10 +288,17 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     handleCloseActions();
   }, [selectedMessage, handleCloseActions]);
 
+  const handleEdit = useCallback(() => {
+    if (selectedMessage) {
+      setEditingMessage(selectedMessage);
+    }
+    handleCloseActions();
+  }, [selectedMessage, handleCloseActions]);
+
   const handleDeleteMe = useCallback(async () => {
     if (!selectedMessage) { handleCloseActions(); return; }
     try {
-      await deleteMessageById(selectedMessage.id);
+      await softDeleteMessageForMe(selectedMessage.id);
       setMessages(prev => prev.filter(m => m.id !== selectedMessage.id));
     } catch (err) {
       // delete failed silently
@@ -218,7 +309,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const handleDeleteEveryone = useCallback(async () => {
     if (!selectedMessage) { handleCloseActions(); return; }
     try {
-      await deleteForEveryone(selectedMessage.id);
+      await softDeleteForEveryone(selectedMessage.id);
       await updateMessageContent(selectedMessage.id, 'This message was deleted.');
       setMessages(prev =>
         prev.map(m =>
@@ -245,6 +336,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     return Date.now() - timestamp < 15 * 60 * 1000;
   }, []);
 
+  const isWithin24Hours = useCallback((timestamp: number): boolean => {
+    return Date.now() - timestamp < 24 * 60 * 60 * 1000;
+  }, []);
+
   const renderItem = useCallback(({ item }: { item: LocalMessage }) => {
     if (!item) return null;
     return (
@@ -254,12 +349,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         timestamp={item.timestamp || 0}
         deliveryStatus={item.delivery_status || 'sent'}
         onLongPress={() => handleLongPress(item)}
+        isEdited={item.is_edited === 1}
       />
     );
   }, [handleLongPress]);
 
   const isOwnSelected = selectedMessage?.is_sent === 1;
-  const canDeleteEveryone = isOwnSelected && selectedMessage ? isWithin15Min(selectedMessage.timestamp) : false;
+  const canDeleteEveryone = isOwnSelected && selectedMessage ? isWithin24Hours(selectedMessage.timestamp) : false;
+  const canEdit = isOwnSelected && selectedMessage ? isWithin15Min(selectedMessage.timestamp) : false;
 
   if (loadError) {
     return (
@@ -296,16 +393,22 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         }
         showsVerticalScrollIndicator={false}
       />
-      <ChatInput onSend={handleSend} />
+      <ChatInput
+        onSend={handleSend}
+        editMessage={editingMessage?.content}
+        onCancelEdit={handleCancelEdit}
+      />
       <MessageActionsSheet
         visible={showActions}
         isOwn={isOwnSelected}
         canDeleteEveryone={canDeleteEveryone}
+        canEdit={canEdit}
         onClose={handleCloseActions}
         onCopy={handleCopy}
         onDeleteMe={handleDeleteMe}
         onDeleteEveryone={handleDeleteEveryone}
         onMessageInfo={handleMessageInfo}
+        onEdit={handleEdit}
       />
     </KeyboardAvoidingView>
   );

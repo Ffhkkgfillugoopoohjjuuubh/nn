@@ -8,6 +8,7 @@ interface ChatBubbleProps {
   timestamp: number;
   deliveryStatus?: string;
   onLongPress?: () => void;
+  isEdited?: boolean;
 }
 
 const formatMessageTime = (ts: number): string => {
@@ -49,6 +50,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
   timestamp,
   deliveryStatus,
   onLongPress,
+  isEdited,
 }) => {
   const isDeleted = content === 'This message was deleted.';
 
@@ -71,6 +73,11 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
         {isDeleted ? 'This message was deleted.' : content}
       </Text>
       <View style={styles.metaRow}>
+        {isEdited && !isDeleted && (
+          <Text style={[styles.editedLabel, isSent ? styles.sentTime : styles.receivedTime]}>
+            Edited
+          </Text>
+        )}
         <Text style={[styles.timeText, isSent ? styles.sentTime : styles.receivedTime]}>
           {formatMessageTime(timestamp)}
         </Text>
@@ -130,6 +137,11 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 11,
+  },
+  editedLabel: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginRight: 4,
   },
   sentTime: {
     color: '#667781',

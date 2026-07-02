@@ -44,6 +44,18 @@ export const initDatabase = async (): Promise<void> => {
       );
     }, reject, resolve);
   });
+
+  await migrateV2();
+};
+
+async function migrateV2(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql('ALTER TABLE local_messages ADD COLUMN edited_at INTEGER DEFAULT 0', [], () => {}, () => false);
+      tx.executeSql('ALTER TABLE local_messages ADD COLUMN is_edited INTEGER DEFAULT 0', [], () => {}, () => false);
+      tx.executeSql('ALTER TABLE local_messages ADD COLUMN is_deleted_for_me INTEGER DEFAULT 0', [], () => {}, () => false);
+    }, reject, resolve);
+  });
 };
 
 // ---- CHATS ----
@@ -140,7 +152,7 @@ export const getMessagesForChat = async (chatId: string): Promise<LocalMessage[]
   return new Promise((resolve, reject) => {
     db.transaction(tx => {
       tx.executeSql(
-        'SELECT * FROM local_messages WHERE chat_id = ? ORDER BY timestamp ASC',
+        'SELECT * FROM local_messages WHERE chat_id = ? AND (is_deleted_for_me IS NULL OR is_deleted_for_me = 0) ORDER BY timestamp ASC',
         [chatId],
         (_, { rows }) => resolve(rows._array as LocalMessage[]),
         (_, error) => {
@@ -231,6 +243,38 @@ export const deleteMessageById = async (messageId: string): Promise<void> => {
       tx.executeSql(
         'DELETE FROM local_messages WHERE id = ?',
         [messageId],
+        () => resolve(),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
+export const softDeleteMessageForMe = async (messageId: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'UPDATE local_messages SET is_deleted_for_me = 1 WHERE id = ?',
+        [messageId],
+        () => resolve(),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  });
+};
+
+export const editMessageLocal = async (messageId: string, content: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'UPDATE local_messages SET content = ?, is_edited = 1, edited_at = ? WHERE id = ?',
+        [content, Date.now(), messageId],
         () => resolve(),
         (_, error) => {
           reject(error);

@@ -116,6 +116,89 @@ export const deleteForEveryone = async (messageId: string): Promise<void> => {
   if (error) console.error('deleteForEveryone error:', error.message);
 };
 
+export const softDeleteForEveryone = async (messageId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      content: 'This message was deleted.',
+      deleted_for_everyone: true,
+    })
+    .eq('id', messageId);
+  if (error) console.error('softDeleteForEveryone error:', error.message);
+};
+
+export const editMessageOnServer = async (messageId: string, content: string): Promise<void> => {
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      content,
+      is_edited: true,
+      edited_at: new Date().toISOString(),
+    })
+    .eq('id', messageId);
+  if (error) console.error('editMessageOnServer error:', error.message);
+};
+
+export const subscribeToSentMessageUpdates = (
+  currentUserId: string,
+  onMessageUpdated: (message: Message) => void
+): (() => void) => {
+  const topic = `sent-updates-${currentUserId}-${Date.now()}`;
+
+  const channel = supabase
+    .channel(topic)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${currentUserId}`,
+      },
+      (payload: RealtimePostgresChangesPayload<Message>) => {
+        const updated = payload.new as Message;
+        if (updated) {
+          onMessageUpdated(updated);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+export const subscribeToReceivedMessageUpdates = (
+  currentUserId: string,
+  onMessageUpdated: (message: Message) => void
+): (() => void) => {
+  const topic = `received-updates-${currentUserId}-${Date.now()}`;
+
+  const channel = supabase
+    .channel(topic)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${currentUserId}`,
+      },
+      (payload: RealtimePostgresChangesPayload<Message>) => {
+        const updated = payload.new as Message;
+        if (updated) {
+          onMessageUpdated(updated);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
 export const processPendingMessages = async (
   senderId: string,
   recipientProfile: Profile

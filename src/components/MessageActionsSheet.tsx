@@ -13,22 +13,26 @@ interface MessageActionsSheetProps {
   visible: boolean;
   isOwn: boolean;
   canDeleteEveryone: boolean;
+  canEdit: boolean;
   onClose: () => void;
   onCopy: () => void;
   onDeleteMe: () => void;
   onDeleteEveryone: () => void;
   onMessageInfo: () => void;
+  onEdit?: () => void;
 }
 
 const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
   visible,
   isOwn,
   canDeleteEveryone,
+  canEdit,
   onClose,
   onCopy,
   onDeleteMe,
   onDeleteEveryone,
   onMessageInfo,
+  onEdit,
 }) => {
   return (
     <Modal
@@ -44,6 +48,14 @@ const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
             <Text style={styles.optionText}>Copy</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
+          {isOwn && canEdit && (
+            <>
+              <TouchableOpacity style={styles.option} onPress={onEdit}>
+                <Text style={styles.optionText}>Edit</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
           {isOwn && canDeleteEveryone && (
             <>
               <TouchableOpacity style={styles.option} onPress={onDeleteEveryone}>

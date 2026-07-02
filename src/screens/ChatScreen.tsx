@@ -70,6 +70,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         }
 
         const localMsgs = await getMessagesForChat(contactId);
+        const localMap = new Map(localMsgs.map(m => [m.id, m]));
         const seenIds = new Set(localMsgs.map(m => m.id));
 
         const { data: remoteMsgs } = await supabase
@@ -93,6 +94,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
                 is_edited: rm.is_edited ? 1 : 0,
                 edited_at: rm.edited_at ? new Date(rm.edited_at).getTime() : undefined,
               });
+            } else {
+              const existing = localMap.get(rm.id);
+              if (existing && existing.content !== rm.content) {
+                await updateMessageContent(rm.id, rm.content);
+              }
             }
           }
         }

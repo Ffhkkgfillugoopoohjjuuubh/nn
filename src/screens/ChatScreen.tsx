@@ -16,10 +16,8 @@ import {
   sendMessage,
   acknowledgeDelivery,
   markMessagesReadOnServer,
-  softDeleteForEveryone,
+  deleteForEveryone,
   editMessageOnServer,
-  subscribeToSentMessageUpdates,
-  subscribeToReceivedMessageUpdates,
 } from '../services/messageService';
 import {
   getMessagesForChat,
@@ -27,7 +25,6 @@ import {
   upsertChat,
   markChatRead,
   updateMessageContent,
-  updateMessageDeliveryStatus,
   softDeleteMessageForMe,
   editMessageLocal,
 } from '../services/localDatabase';
@@ -168,55 +165,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
 
   useRealtimeMessages(user?.id || '', onRealtimeMessage);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    const unsub = subscribeToSentMessageUpdates(user.id, (updated: Message) => {
-      if (updated.recipient_id !== contactId) return;
-      if (updated.delivered_at) {
-        setMessages(prev => {
-          const msg = prev.find(m => m.id === updated.id);
-          if (!msg || msg.delivery_status === 'read') return prev;
-          updateMessageDeliveryStatus(updated.id, 'delivered');
-          return prev.map(m => m.id === updated.id ? { ...m, delivery_status: 'delivered' as const } : m);
-        });
-      }
-      if (updated.read_at) {
-        setMessages(prev => {
-          const msg = prev.find(m => m.id === updated.id);
-          if (!msg || msg.delivery_status === 'read') return prev;
-          updateMessageDeliveryStatus(updated.id, 'read', 1);
-          return prev.map(m => m.id === updated.id ? { ...m, delivery_status: 'read' as const, is_read: 1 } : m);
-        });
-      }
-      if (updated.is_edited && updated.edited_at) {
-        setMessages(prev =>
-          prev.map(m => m.id === updated.id ? { ...m, content: updated.content, is_edited: 1 } : m)
-        );
-      }
-    });
-    return unsub;
-  }, [user?.id, contactId]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const unsub = subscribeToReceivedMessageUpdates(user.id, (updated: Message) => {
-      if (updated.sender_id !== contactId) return;
-      if (updated.is_edited) {
-        updateMessageContent(updated.id, updated.content);
-        setMessages(prev =>
-          prev.map(m => m.id === updated.id ? { ...m, content: updated.content, is_edited: 1 } : m)
-        );
-      }
-      if (updated.deleted_for_everyone) {
-        updateMessageContent(updated.id, 'This message was deleted.');
-        setMessages(prev =>
-          prev.map(m => m.id === updated.id ? { ...m, content: 'This message was deleted.' } : m)
-        );
-      }
-    });
-    return unsub;
-  }, [user?.id, contactId]);
-
   const handleCancelEdit = useCallback(() => {
     setEditingMessage(null);
   }, []);
@@ -309,7 +257,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const handleDeleteEveryone = useCallback(async () => {
     if (!selectedMessage) { handleCloseActions(); return; }
     try {
-      await softDeleteForEveryone(selectedMessage.id);
+      await deleteForEveryone(selectedMessage.id);
       await updateMessageContent(selectedMessage.id, 'This message was deleted.');
       setMessages(prev =>
         prev.map(m =>

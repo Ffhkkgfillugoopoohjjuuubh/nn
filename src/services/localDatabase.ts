@@ -149,10 +149,10 @@ export const markChatRead = async (chatId: string): Promise<void> => {
 // ---- MESSAGES ----
 
 export const getMessagesForChat = async (chatId: string): Promise<LocalMessage[]> => {
-  return new Promise((resolve, reject) => {
+  const rows = await new Promise<LocalMessage[]>((resolve, reject) => {
     db.transaction(tx => {
       tx.executeSql(
-        'SELECT * FROM local_messages WHERE chat_id = ? AND (is_deleted_for_me IS NULL OR is_deleted_for_me = 0) ORDER BY timestamp ASC',
+        'SELECT * FROM local_messages WHERE chat_id = ? ORDER BY timestamp ASC',
         [chatId],
         (_, { rows }) => resolve(rows._array as LocalMessage[]),
         (_, error) => {
@@ -162,6 +162,7 @@ export const getMessagesForChat = async (chatId: string): Promise<LocalMessage[]
       );
     });
   });
+  return rows.filter(m => !m.is_deleted_for_me);
 };
 
 export const insertMessage = async (message: LocalMessage): Promise<void> => {
